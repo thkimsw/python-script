@@ -1,0 +1,45 @@
+# 프로젝트 개요
+
+이 프로젝트는 **PostgreSQL** 데이터베이스와 **PostGIS** 확장을 사용하여 데이터를 처리하고, **Docker** 환경에서 실행되는 다양한 Python 스크립트를 통해 데이터를 복원하고 이동하는 작업을 자동화합니다. 주요 기능으로는 데이터 복원, 테이블 이동, 테이블 이름 변경 및 데이터 삽입 등이 포함됩니다.
+
+## 1. **종속성 설치**
+이 프로젝트는 두 가지 주요 종속성이 있습니다:
+- `pgadmin`: PostgreSQL 관리 툴
+- `pandas`: 데이터 처리 및 분석을 위한 라이브러리
+
+종속성 설치:
+```bash
+pip install pgadmin pandas
+```
+
+## 2. **스키마 배열을 통한 `index_update` 및 `sequences` 설정**
+- 이 단계에서는 주어진 스키마의 `index_update`와 `sequences`를 **pkey + 1**로 맞추기 위한 작업을 자동화합니다. 이를 통해 스키마 이름과 `pkey`를 자동으로 조회하고 업데이트합니다.
+
+## 3. **restore-db.py: 데이터베이스 복원**
+- **Docker**를 사용하여 타겟 DB에 데이터를 복원합니다. 매번 새로 **PostGIS** 컨테이너를 만들고 **PostGIS 확장**을 활성화하는 작업이 필요합니다.
+    1. Docker 컨테이너 실행:
+    ```bash
+    docker run --name postgis_container -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=gis_db -p 5432:5432 -d postgis/postgis
+    ```
+    2. PostgreSQL 접속:
+    ```bash
+    docker exec -it postgis_container psql -U postgres -d gis_db
+    ```
+    3. PostGIS 확장 활성화:
+    ```bash
+    CREATE EXTENSION postgis;
+    CREATE EXTENSION postgis_topology;
+    CREATE EXTENSION postgis_raster;
+    ```
+    4. 경로에 `table_list.csv` 생성됨
+
+## 4. **(필요시 백업) change_dbname.py**
+- **table_list.csv**를 기준으로 해당 DB 스키마와 테이블을 참조하여 `new_table_name` 변수로 테이블 이름을 변경합니다.
+
+## 5. **move_table.py: 테이블 이동**
+- **table_list.csv** 기준으로 **source_db**에서 **target_db**로 테이블을 이동합니다.
+- 에러가 발생한 경우 **table_list.csv**에 해당 항목만 기록되며, 이후 **restore-db**, **move_table.py**를 다시 실행하여 로그를 확인합니다.
+
+## 6. **(필요시 4번과 병행 검증용) show_two_table_data_count.py**
+- 실행 시 해당 DB의 데이터 수와 **4번 항목**에서 생성된 `new_table_name` 기준으로 데이터를 삽입한 이름의 데이터 수를 **CSV**로 저장합니다.
+
